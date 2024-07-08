@@ -1,0 +1,91 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cesium Clustering Example</title>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.84/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.84/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #clusterImage {
+            position: absolute;
+            display: none;
+            border: 1px solid #000;
+            background-color: #fff;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+    <div id="clusterImage"></div>
+
+    <script>
+        var viewer = new Cesium.Viewer('cesiumContainer');
+
+        var dataSource = Cesium.GeoJsonDataSource.load('path/to/your/data.geojson');
+        viewer.dataSources.add(dataSource);
+
+        dataSource.then(function(ds) {
+            var pixelRange = 15;
+            var minimumClusterSize = 3;
+
+            ds.clustering.enabled = true;
+            ds.clustering.pixelRange = pixelRange;
+            ds.clustering.minimumClusterSize = minimumClusterSize;
+
+            ds.clustering.clusterEvent.addEventListener(function(clusteredEntities, cluster) {
+                cluster.label.show = false;
+                cluster.billboard.show = true;
+                cluster.billboard.image = 'path/to/your/cluster/image.png';
+                cluster.billboard.width = 32;
+                cluster.billboard.height = 32;
+            });
+
+            viewer.screenSpaceEventHandler.setInputAction(function(click) {
+                var pickedObject = viewer.scene.pick(click.position);
+                if (Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.isCluster) {
+                    var cluster = pickedObject.id;
+                    var clusteredEntities = cluster.clusteredEntities;
+
+                    // Generate the image of the clustered entities
+                    var canvas = document.createElement('canvas');
+                    canvas.width = 200;
+                    canvas.height = 200;
+                    var context = canvas.getContext('2d');
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+
+                    clusteredEntities.forEach(function(entity, index) {
+                        // Assuming the entities have properties with images
+                        if (entity.billboard && entity.billboard.image) {
+                            var img = new Image();
+                            img.src = entity.billboard.image._value;
+                            img.onload = function() {
+                                context.drawImage(img, (index % 5) * 40, Math.floor(index / 5) * 40, 40, 40);
+                            };
+                        }
+                    });
+
+                    // Display the image next to the cluster
+                    var clusterImageDiv = document.getElementById('clusterImage');
+                    clusterImageDiv.style.left = click.position.x + 'px';
+                    clusterImageDiv.style.top = click.position.y + 'px';
+                    clusterImageDiv.style.display = 'block';
+                    clusterImageDiv.innerHTML = '';
+                    clusterImageDiv.appendChild(canvas);
+                } else {
+                    // Hide the image if no cluster is clicked
+                    document.getElementById('clusterImage').style.display = 'none';
+                }
+            }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        });
+    </script>
+</body>
+</html>
